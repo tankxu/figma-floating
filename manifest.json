@@ -1,0 +1,11 @@
+{
+  "name": "Floating",
+  "id": "1075424703504231427",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": [
+    "figma",
+    "figjam"
+  ],
+  "ui": "ui.html"
+}
