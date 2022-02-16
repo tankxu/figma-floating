@@ -1,112 +1,141 @@
-<style>
-  body {
-    margin: 0;
-  }
+<html>
+  <head>
+    <style>
+      body {
+        margin: 0;
+      }
 
-  #float-container {
-    width: 100%;
-    height: 100%;
-    overflow: scroll;
-    position: relative;
-  }
-  #corner {
-    position: absolute;
-    right: 1px;
-    bottom: 2px;
-    cursor: nwse-resize;
-  }
-</style>
+      #float-container {
+        width: 100%;
+        height: 100%;
+        user-select: none;
+        overflow: scroll;
+      }
+      #corner {
+        position: absolute;
+        right: 1px;
+        bottom: 2px;
+        cursor: nwse-resize;
+      }
+    </style>
+  </head>
 
-<div id="float-container">
-  <svg
-    id="corner"
-    width="16"
-    height="16"
-    viewBox="0 0 16 16"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <g clip-path="url(#clip0_200_15)">
-      <line
-        x1="17.3536"
-        y1="1.35355"
-        x2="1.35355"
-        y2="17.3536"
-        stroke="white"
-        stroke-opacity="0.7"
-      />
-      <line
-        x1="17.1768"
-        y1="1.17678"
-        x2="1.17678"
-        y2="17.1768"
-        stroke="black"
-        stroke-opacity="0.5"
-        stroke-width="0.5"
-      />
-      <line
-        x1="19.3536"
-        y1="4.35355"
-        x2="3.35355"
-        y2="20.3536"
-        stroke="white"
-        stroke-opacity="0.5"
-      />
-      <line
-        x1="19.1768"
-        y1="4.17678"
-        x2="3.17678"
-        y2="20.1768"
-        stroke="black"
-        stroke-opacity="0.4"
-        stroke-width="0.5"
-      />
-    </g>
-    <defs>
-      <clipPath id="clip0_200_15">
-        <rect width="14" height="14" fill="white" />
-      </clipPath>
-    </defs>
-  </svg>
-</div>
+  <body>
+    <div id="float-container"></div>
 
-<script>
-  let imageBytes;
-  onmessage = (event) => {
-    let pluginData = event.data.pluginMessage;
-    let imageBytes = pluginData.image;
-    let imageWidth = pluginData.width;
-    let imageHeight = pluginData.height;
-    console.log("got this from the plugin code", imageBytes);
+    <svg
+      id="corner"
+      width="16"
+      height="16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <g clip-path="url(#a)">
+        <path stroke="#fff" stroke-opacity=".7" d="m17.354 1.354-16 16" />
+        <path
+          stroke="#000"
+          stroke-opacity=".5"
+          stroke-width=".5"
+          d="m17.177 1.177-16 16"
+        />
+        <path stroke="#fff" stroke-opacity=".5" d="m19.354 4.354-16 16" />
+        <path
+          stroke="#000"
+          stroke-opacity=".4"
+          stroke-width=".5"
+          d="m19.177 4.177-16 16"
+        />
+      </g>
+      <defs>
+        <clipPath id="a"><path fill="#fff" d="M0 0h14v14H0z" /></clipPath>
+      </defs>
+    </svg>
+  </body>
 
-    const floatImage = new Image();
+  <script>
+    let floatImage,
+      imageBytes,
+      imageWidth,
+      imageHeight,
+      pluginWindowX,
+      pluginWindowY;
 
-    floatImage.src = URL.createObjectURL(
-      new Blob([imageBytes.buffer], { type: "image/png" })
-    );
+    onmessage = (event) => {
+      let pluginData = event.data.pluginMessage;
+      imageBytes = pluginData.image;
+      imageWidth = pluginData.width;
+      imageHeight = pluginData.height;
+      // console.log("got this from the plugin code", imageBytes);
 
-    floatImage.width = imageWidth;
+      floatImage = new Image();
 
-    document.getElementById("float-container").appendChild(floatImage);
+      floatImage.src = URL.createObjectURL(
+        new Blob([imageBytes.buffer], { type: "image/png" })
+      );
 
-    // floatImage.width = floatImage.clientWidth;
-  };
+      floatImage.width = imageWidth;
 
-  // Resize plugin window
-  const corner = document.getElementById("corner");
-  function resizeWindow(e) {
-    const size = {
-      w: Math.max(50, Math.floor(e.clientX + 5)),
-      h: Math.max(50, Math.floor(e.clientY + 5)),
+      floatImage.draggable = true;
+
+      document.getElementById("float-container").appendChild(floatImage);
+
+      floatImage.ondragstart = (e) => {
+        pluginWindowX = e.clientX;
+        pluginWindowY = e.clientY;
+        console.log("in plugin window", pluginWindowX, pluginWindowY);
+      };
+
+      // Drop image into canvas
+      floatImage.addEventListener("dragend", (e) => {
+        // Don't proceed if the item was dropped inside the plugin window.
+        if (e.view.length === 0) return;
+
+        console.log("drag", e.clientX, e.clientY);
+
+        window.parent.postMessage(
+          {
+            pluginDrop: {
+              clientX: e.clientX - pluginWindowX,
+              clientY: e.clientY + (imageHeight - pluginWindowY),
+              items: [],
+            },
+          },
+          "*"
+        );
+        console.log("Image dropped");
+      });
     };
-    parent.postMessage({ pluginMessage: { type: "resize", size: size } }, "*");
-  }
-  corner.onpointerdown = (e) => {
-    corner.onpointermove = resizeWindow;
-    corner.setPointerCapture(e.pointerId);
-  };
-  corner.onpointerup = (e) => {
-    corner.onpointermove = null;
-    corner.releasePointerCapture(e.pointerId);
-  };
-</script>
+
+    // Resize plugin window
+    const corner = document.getElementById("corner");
+    function resizeWindow(e) {
+      const size = {
+        w: Math.max(50, Math.floor(e.clientX + 5)),
+        h: Math.max(50, Math.floor(e.clientY + 5)),
+      };
+      parent.postMessage(
+        { pluginMessage: { type: "resize", size: size } },
+        "*"
+      );
+    }
+    corner.onpointerdown = (e) => {
+      corner.onpointermove = resizeWindow;
+      corner.setPointerCapture(e.pointerId);
+    };
+    corner.onpointerup = (e) => {
+      corner.onpointermove = null;
+      corner.releasePointerCapture(e.pointerId);
+    };
+    corner.addEventListener("dblclick", (e) => {
+      parent.postMessage(
+        {
+          pluginMessage: {
+            type: "resize",
+            size: { w: imageWidth, h: imageHeight },
+          },
+        },
+        "*"
+      );
+    });
+  </script>
+</html>
